@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL 2.0 Instance Rendering 性能对比</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+            font-size: 2em;
+        }
+        
+        .controls {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            min-width: 120px;
+            font-weight: 500;
+        }
+        
+        .control-group input[type="range"] {
+            flex: 1;
+            height: 6px;
+            background: #444;
+            outline: none;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        
+        .control-value {
+            min-width: 80px;
+            text-align: right;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .demo-item {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .demo-header {
+            background-color: #333;
+            padding: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 2px solid #444;
+        }
+        
+        .demo-header.attribute {
+            border-bottom-color: #FF6B6B;
+        }
+        
+        .demo-header.ubo {
+            border-bottom-color: #4ECDC4;
+        }
+        
+        .demo-header.texture {
+            border-bottom-color: #FFE66D;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 300px;
+            background-color: #1a1a1a;
+        }
+        
+        .stats {
+            padding: 15px;
+            background-color: #252525;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background-color: #1a1a1a;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .stat-label {
+            color: #999;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .stat-value::after {
+            color: #666;
+            font-size: 0.85em;
+            margin-left: 4px;
+        }
+        
+        .fps::after {
+            content: ' FPS';
+        }
+        
+        .update-time::after,
+        .render-time::after,
+        .total-time::after {
+            content: ' ms';
+        }
+        
+        .comparison {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .comparison h2 {
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        
+        .comparison-table th {
+            background-color: #333;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .comparison-table tr:hover {
+            background-color: #333;
+        }
+        
+        .info {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .info h3 {
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .info ul {
+            list-style-position: inside;
+            color: #ccc;
+        }
+        
+        .info li {
+            margin-bottom: 5px;
+        }
+        
+        .error {
+            color: #ff4444;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .control-group input[type="range"] {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebGL 2.0 Instance Rendering 性能对比</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="instance-count">实例数量：</label>
+                <input type="range" id="instance-count" min="10" max="200000" value="10000" step="1000">
+                <span class="control-value" id="instance-count-value">10000</span>
+            </div>
+        </div>
+        
+        <div class="demo-grid">
+            <!-- 顶点属性方法 -->
+            <div class="demo-item">
+                <div class="demo-header attribute">顶点属性方法 (Vertex Attributes)</div>
+                <canvas id="canvas-attribute" width="400" height="300"></canvas>
+                <div class="stats" id="stats-attribute">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">帧率</span>
+                            <span class="stat-value fps">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">更新时间</span>
+                            <span class="stat-value update-time">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">渲染时间</span>
+                            <span class="stat-value render-time">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总时间</span>
+                            <span class="stat-value total-time">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- UBO方法 -->
+            <div class="demo-item">
+                <div class="demo-header ubo">UBO方法 (Uniform Buffer Object)</div>
+                <canvas id="canvas-ubo" width="400" height="300"></canvas>
+                <div class="stats" id="stats-ubo">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">帧率</span>
+                            <span class="stat-value fps">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">更新时间</span>
+                            <span class="stat-value update-time">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">渲染时间</span>
+                            <span class="stat-value render-time">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总时间</span>
+                            <span class="stat-value total-time">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 纹理方法 -->
+            <div class="demo-item">
+                <div class="demo-header texture">纹理方法 (Texture)</div>
+                <canvas id="canvas-texture" width="400" height="300"></canvas>
+                <div class="stats" id="stats-texture">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">帧率</span>
+                            <span class="stat-value fps">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">更新时间</span>
+                            <span class="stat-value update-time">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">渲染时间</span>
+                            <span class="stat-value render-time">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总时间</span>
+                            <span class="stat-value total-time">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="comparison">
+            <h2>方法对比</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>特性</th>
+                        <th>顶点属性</th>
+                        <th>UBO</th>
+                        <th>纹理</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>内存布局</td>
+                        <td>分离的属性缓冲区</td>
+                        <td>统一的缓冲区块</td>
+                        <td>2D纹理存储</td>
+                    </tr>
+                    <tr>
+                        <td>更新方式</td>
+                        <td>多次bufferSubData</td>
+                        <td>单次bufferSubData</td>
+                        <td>texSubImage2D</td>
+                    </tr>
+                    <tr>
+                        <td>GPU访问</td>
+                        <td>顶点着色器属性</td>
+                        <td>uniform块访问</td>
+                        <td>纹理采样</td>
+                    </tr>
+                    <tr>
+                        <td>实例数量限制</td>
+                        <td>受限于顶点属性数量</td>
+                        <td>受限于UBO大小</td>
+                        <td>受限于纹理大小</td>
+                    </tr>
+                    <tr>
+                        <td>适用场景</td>
+                        <td>中小规模实例</td>
+                        <td>中等规模实例</td>
+                        <td>大规模实例</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="info">
+            <h3>测试说明</h3>
+            <ul>
+                <li>每个三角形实例都在做圆周运动，并且持续旋转</li>
+                <li>所有实例数据每帧都通过bufferSubData或texSubImage2D更新</li>
+                <li>性能数据实时采样并显示，包括FPS、更新时间和渲染时间</li>
+                <li>可以通过滑块动态调整实例数量，观察不同方法的性能表现</li>
+                <li>建议在不同的硬件和浏览器上测试，以获得更全面的性能对比</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script src="InstanceRenderer.js"></script>
+    <script src="AttributeRenderer.js"></script>
+    <script src="UBORenderer.js"></script>
+    <script src="TextureRenderer.js"></script>
+    <script src="PerformanceMonitor.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
