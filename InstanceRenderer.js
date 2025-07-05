@@ -142,14 +142,7 @@ class InstanceRenderer {
         this._updateInstanceByType()
         this.uploadTime = performance.now() - uploadStart;
     }
-    
-    updateUBOMethod() {
-        const gl = this.gl;
-        
-        // 为当前批次准备数据
-        // this.currentBatchData = new Float32Array(this.maxInstancesPerBatch * 12);
-    }
-    
+
     render(time) {
         if (!this.isActive) return;
         

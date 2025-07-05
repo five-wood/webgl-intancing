@@ -122,13 +122,6 @@ class AttributeRenderer extends InstanceRenderer {
                
     }
 
-    updateInstances(time) {
-        if (!this.isActive) return;
-        const updateStart = performance.now();
-        this._updateInstanceByType()
-        this.uploadTime = performance.now() - updateStart;
-    }
-
     _updateInstanceByType()
     {
         const gl = this.gl;
