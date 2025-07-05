@@ -17,6 +17,7 @@ class InstanceRenderer {
         this.lastTime = performance.now();
         this.fps = 0;
         this.updateTime = 0;
+        this.uploadTime = 0;
         this.renderTime = 0;
         this.isActive = false;
         this.MAX_INS_COUNT_PER = 1024;
@@ -134,39 +135,13 @@ class InstanceRenderer {
         
         gl.bindVertexArray(null);
     }
-    
-    getMaxInstancesPerBatch() {
-        // 获取UBO最大大小并计算每批次最大实例数
-        const gl = this.gl;
-        const maxUBOSize = gl.getParameter(gl.MAX_UNIFORM_BLOCK_SIZE);
-        const vec4Size = 16; // 每个vec4占16字节
-        const dataPerInstance = 3; // position+scale, color, rotation
-        const bytesPerInstance = vec4Size * dataPerInstance;
-        return Math.floor(maxUBOSize / bytesPerInstance);
-    }
 
-    
     updateInstances(time) {
         if (!this.isActive) return;
-        
-        const updateStart = performance.now();
-        
-        // 更新实例数据
-        for (let i = 0; i < this.instanceCount; i++) {
-            const instance = this.instances[i];
-            instance.rotation += 0.01;
-            instance.position[0] = Math.sin(time * 0.001 + i * 0.1) * 0.8;
-            instance.position[1] = Math.cos(time * 0.001 + i * 0.1) * 0.8;
-        }
-        
-        const gl = this.gl;
-        
+        const uploadStart = performance.now();
         this._updateInstanceByType()
-        
-        this.updateTime = performance.now() - updateStart;
+        this.uploadTime = performance.now() - uploadStart;
     }
-
-
     
     updateUBOMethod() {
         const gl = this.gl;
@@ -197,7 +172,8 @@ class InstanceRenderer {
             requestAnimationFrame((t) => this.animate(t));
             return;
         }
-        
+        this.updatePosAndRotation(time)
+
         this.updateInstances(time);
         this.render(time);
         
@@ -211,8 +187,20 @@ class InstanceRenderer {
             this.frameCount = 0;
             this.lastTime = currentTime;
         }
-        
         requestAnimationFrame((t) => this.animate(t));
+    }
+
+    updatePosAndRotation(time)
+    {
+        const updateStart = performance.now();
+        // 更新实例数据
+        for (let i = 0; i < this.instanceCount; i++) {
+            const instance = this.instances[i];
+            instance.rotation += 0.01;
+            instance.position[0] = Math.sin(time * 0.001 + i * 0.1) * 0.8;
+            instance.position[1] = Math.cos(time * 0.001 + i * 0.1) * 0.8;
+        }
+        this.updateTime = performance.now() - updateStart;
     }
     
     setActive(active) {
@@ -227,9 +215,9 @@ class InstanceRenderer {
     getStats() {
         return {
             fps: this.fps,
-            updateTime: this.updateTime,
+            uploadTime: this.uploadTime,
             renderTime: this.renderTime,
-            totalTime: (this.updateTime + this.renderTime)
+            totalTime: (this.uploadTime + this.renderTime + this.updateTime)
         };
     }
 

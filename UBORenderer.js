@@ -21,7 +21,17 @@ class UBORenderer extends InstanceRenderer {
         
         console.log(`UBO方法：最大实例数/批次 = ${this.maxInstancesPerBatch}, 批次数 = ${this.batchCount}`);
     }
-
+        
+    getMaxInstancesPerBatch() {
+        // 获取UBO最大大小并计算每批次最大实例数
+        const gl = this.gl;
+        const maxUBOSize = gl.getParameter(gl.MAX_UNIFORM_BLOCK_SIZE);
+        const vec4Size = 16; // 每个vec4占16字节
+        const dataPerInstance = 3; // position+scale, color, rotation
+        const bytesPerInstance = vec4Size * dataPerInstance;
+        return Math.floor(maxUBOSize / bytesPerInstance);
+    }
+    
     _createVShadersByType()
     {
         return `#version 300 es

@@ -44,6 +44,11 @@ class AttributeRenderer extends InstanceRenderer {
     _initByType()
     {
         const gl = this.gl;
+        this.instancePositionBuffer = []
+        this.instanceColorBuffer = []
+        this.instanceScaleBuffer = []
+        this.instanceRotationBuffer = []
+        
         let count = this.getVaoCount();
         for(let i = 0; i < count; i++)
         {
@@ -51,39 +56,39 @@ class AttributeRenderer extends InstanceRenderer {
             gl.bindVertexArray(vao);
         
             // 创建实例属性缓冲
-            this.instancePositionBuffer = gl.createBuffer();
-            this.instanceColorBuffer = gl.createBuffer();
-            this.instanceScaleBuffer = gl.createBuffer();
-            this.instanceRotationBuffer = gl.createBuffer();
+            this.instancePositionBuffer.push(gl.createBuffer());
+            this.instanceColorBuffer.push(gl.createBuffer());
+            this.instanceScaleBuffer.push(gl.createBuffer());
+            this.instanceRotationBuffer.push(gl.createBuffer());
             
             // 位置属性
             const positionLoc = gl.getAttribLocation(this.program, 'a_instancePosition');
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.instancePositionBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.instanceCount * 3 * 4, gl.DYNAMIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.instancePositionBuffer[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, this.MAX_INS_COUNT_PER * 3 * 4, gl.DYNAMIC_DRAW);
             gl.enableVertexAttribArray(positionLoc);
             gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
             gl.vertexAttribDivisor(positionLoc, 1);
             
             // 颜色属性
             const colorLoc = gl.getAttribLocation(this.program, 'a_instanceColor');
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceColorBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.instanceCount * 4 * 4, gl.DYNAMIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceColorBuffer[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, this.MAX_INS_COUNT_PER * 4 * 4, gl.DYNAMIC_DRAW);
             gl.enableVertexAttribArray(colorLoc);
             gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
             gl.vertexAttribDivisor(colorLoc, 1);
             
             // 缩放属性
             const scaleLoc = gl.getAttribLocation(this.program, 'a_instanceScale');
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.instanceCount * 4, gl.DYNAMIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, this.MAX_INS_COUNT_PER * 4, gl.DYNAMIC_DRAW);
             gl.enableVertexAttribArray(scaleLoc);
             gl.vertexAttribPointer(scaleLoc, 1, gl.FLOAT, false, 0, 0);
             gl.vertexAttribDivisor(scaleLoc, 1);
             
             // 旋转属性
             const rotationLoc = gl.getAttribLocation(this.program, 'a_instanceRotation');
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceRotationBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.instanceCount * 4, gl.DYNAMIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceRotationBuffer[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, this.MAX_INS_COUNT_PER * 4, gl.DYNAMIC_DRAW);
             gl.enableVertexAttribArray(rotationLoc);
             gl.vertexAttribPointer(rotationLoc, 1, gl.FLOAT, false, 0, 0);
             gl.vertexAttribDivisor(rotationLoc, 1);
@@ -116,33 +121,43 @@ class AttributeRenderer extends InstanceRenderer {
         }`;
                
     }
-    
+
+    updateInstances(time) {
+        if (!this.isActive) return;
+        const updateStart = performance.now();
+        this._updateInstanceByType()
+        this.uploadTime = performance.now() - updateStart;
+    }
+
     _updateInstanceByType()
     {
         const gl = this.gl;
         let positions = this.attriPosArray
         if(!positions)
         {
-            positions = this.attriPosArray = new Float32Array(this.instanceCount * 3);
+            positions = this.attriPosArray = new Float32Array(this.MAX_INS_COUNT_PER * 3);
         }
         let colors = this.attriColorsArray
         if(!colors)
         {
-            colors = this.attriColorsArray = new Float32Array(this.instanceCount * 4);
+            colors = this.attriColorsArray = new Float32Array(this.MAX_INS_COUNT_PER * 4);
         }
         let scales = this.attriScalesArray
         if(!scales)
         {
-            scales = new Float32Array(this.instanceCount);
+            scales = this.attriScalesArray = new Float32Array(this.MAX_INS_COUNT_PER);
         }
         let rotations = this.attriRotationsArray
         if(!rotations)
         {
-            rotations = new Float32Array(this.instanceCount);
+            rotations = this.attriRotationsArray = new Float32Array(this.MAX_INS_COUNT_PER);
         }
-        
-        for (let i = 0; i < this.instanceCount; i++) {
-            const instance = this.instances[i];
+
+        const startIdx = this.curVaoIndex*this.MAX_INS_COUNT_PER;
+        const endIndex = Math.min(this.instanceCount, startIdx+this.MAX_INS_COUNT_PER)
+        let i = 0;
+        for (let x = startIdx; x < endIndex; x++) {
+            const instance = this.instances[x];
             positions[i * 3] = instance.position[0];
             positions[i * 3 + 1] = instance.position[1];
             positions[i * 3 + 2] = instance.position[2];
@@ -154,25 +169,31 @@ class AttributeRenderer extends InstanceRenderer {
             
             scales[i] = instance.scale;
             rotations[i] = instance.rotation;
+
+            i++;
         }
         
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.instancePositionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.instancePositionBuffer[this.curVaoIndex]);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
         
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceColorBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceColorBuffer[this.curVaoIndex]);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
         
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer[this.curVaoIndex]);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, scales);
         
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceRotationBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceRotationBuffer[this.curVaoIndex]);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, rotations);
     }
       
     _renderByType()
     {
         const gl = this.gl;
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, this.instanceCount);
+        // 计算当前批次实际实例数
+        const startIdx = this.curVaoIndex * this.MAX_INS_COUNT_PER;
+        const endIdx = Math.min(this.instanceCount, startIdx + this.MAX_INS_COUNT_PER);
+        const count = endIdx - startIdx;
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, count);
     }
 
     render(time) {
@@ -181,20 +202,45 @@ class AttributeRenderer extends InstanceRenderer {
         const renderStart = performance.now();
         
         const gl = this.gl;
-        
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        let count = this.getVaoCount();
-        gl.useProgram(this.program);
-        for(let i = 0; i < count; i++)
-        {
-            const vao = this.vaoList[i];
-            gl.bindVertexArray(vao);
-            this._renderByType()
-            gl.bindVertexArray(null);
-        }
+
+        gl.bindVertexArray(this.vaoList[this.curVaoIndex]);
+        this._renderByType()
+        gl.bindVertexArray(null);
         this.renderTime = performance.now() - renderStart;
     }
 
+    animate(time) {
+        if (!this.isActive) {
+            requestAnimationFrame((t) => this.animate(t));
+            return;
+        }
+                
+        this.updatePosAndRotation(time)
+
+        const gl = this.gl; 
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.useProgram(this.program);
+
+        this.curVaoIndex = 0;
+        for(let i = 0; i < this.instanceCount; i += this.MAX_INS_COUNT_PER)
+        {
+            this.updateInstances(time);
+            this.render(time);
+            this.curVaoIndex++;
+        }
+      
+        // 计算FPS
+        this.frameCount++;
+        const currentTime = performance.now();
+        const deltaTime = currentTime - this.lastTime;
+        
+        if (deltaTime >= 1000) {
+            this.fps = (this.frameCount * 1000) / deltaTime;
+            this.frameCount = 0;
+            this.lastTime = currentTime;
+        }
+        
+        requestAnimationFrame((t) => this.animate(t));
+    }
 }
 

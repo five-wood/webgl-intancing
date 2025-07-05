@@ -8,7 +8,7 @@ class PerformanceMonitor {
         this.MAX_STAT_CNT = 30;
         this.statCount = 0;
         this.t_fps = 0;
-        this.t_updateTime = 0;
+        this.t_uploadTime = 0;
         this.t_renderTime = 0;
         this.t_totalTime = 0;
     }
@@ -33,7 +33,7 @@ class PerformanceMonitor {
                     if(this.statCount>0)
                     {
                         this.t_fps += stats.fps;
-                        this.t_updateTime += stats.updateTime;
+                        this.t_uploadTime += stats.uploadTime;
                         this.t_renderTime += stats.renderTime;
                         this.t_totalTime += stats.totalTime;
                         this.statCount--;
@@ -41,11 +41,11 @@ class PerformanceMonitor {
                     else
                     {
                         element.querySelector('.fps').textContent = (this.t_fps/this.MAX_STAT_CNT).toFixed(2);
-                        element.querySelector('.update-time').textContent = (this.t_updateTime/this.MAX_STAT_CNT).toFixed(2);
+                        element.querySelector('.update-time').textContent = (this.t_uploadTime/this.MAX_STAT_CNT).toFixed(2);
                         element.querySelector('.render-time').textContent = (this.t_renderTime/this.MAX_STAT_CNT).toFixed(2);
                         element.querySelector('.total-time').textContent = (this.t_totalTime/this.MAX_STAT_CNT).toFixed(2);
                         this.t_fps = 0;
-                        this.t_updateTime = 0;
+                        this.t_uploadTime = 0;
                         this.t_renderTime = 0;
                         this.t_totalTime = 0;
                         this.statCount = this.MAX_STAT_CNT;
