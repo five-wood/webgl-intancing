@@ -62,6 +62,7 @@ class TextureRenderer extends InstanceRenderer {
         
         uniform sampler2D u_instanceData;
         uniform int u_textureWidth;
+        uniform int u_indexOffset;
         
         out vec4 v_color;
         
@@ -73,7 +74,7 @@ class TextureRenderer extends InstanceRenderer {
         }
         
         void main() {
-            int id = gl_InstanceID;
+            int id = gl_InstanceID + u_indexOffset;
             
             vec4 posData = getInstanceData(id, 0);
             vec4 colorData = getInstanceData(id, 1);
@@ -96,10 +97,8 @@ class TextureRenderer extends InstanceRenderer {
         }`;
     }
     
-    _updateInstanceByType()
+    _updateInstancesByType()
     {
-        const gl = this.gl;
-        
         let data = this.textureData
         if(!data)
         {
@@ -129,13 +128,6 @@ class TextureRenderer extends InstanceRenderer {
             data[baseIndex + 11] = 0;
             i++;
         }
-        
-        for (let i = 0; i < this.instanceCount; i++) {
-            
-        }
-        let xoffset = % this.textureWidth;
-        let yoffset = 0
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, xoffset, yoffset, this.textureWidth, this.textureHeight, gl.RGBA, gl.FLOAT, data);
     }
       
     render(time) {
@@ -144,23 +136,17 @@ class TextureRenderer extends InstanceRenderer {
         const renderStart = performance.now();
         const gl = this.gl;
         // 绑定vao，确认顶点数据
-        gl.bindVertexArray(this.vao);
-        // 绑定贴图信息
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.instanceTexture);
-        const textureLoc = gl.getUniformLocation(this.program, 'u_instanceData');
-        gl.uniform1i(textureLoc, 0);
-        const widthLoc = gl.getUniformLocation(this.program, 'u_textureWidth');
-        gl.uniform1i(widthLoc, this.textureWidth);
+        gl.bindVertexArray(this.vaoList[this.curVaoIndex]);
+        const indexOffsetLoc = gl.getUniformLocation(this.program, 'u_indexOffset');
+        gl.uniform1i(indexOffsetLoc, this.curVaoIndex*this.MAX_INS_COUNT_PER);
         //使用uniform传入当前渲染从哪个uv开始
-
-
         // 计算当前批次实际实例数
         const startIdx = this.curVaoIndex * this.MAX_INS_COUNT_PER;
         const endIdx = Math.min(this.instanceCount, startIdx + this.MAX_INS_COUNT_PER);
         const count = endIdx - startIdx;
         gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, count);
 
+        gl.bindVertexArray(null);
         this.renderTime = performance.now() - renderStart;
     }
 
@@ -177,19 +163,35 @@ class TextureRenderer extends InstanceRenderer {
         gl.useProgram(this.program);
 
         gl.bindTexture(gl.TEXTURE_2D, this.instanceTexture);
-        for(let i = 0; i < this.instanceCount; i += this.MAX_INS_COUNT_PER)
+        
+        // 更新所有批次的数据
+        const vaoCount = this.getVaoCount();
+        for(this.curVaoIndex = 0; this.curVaoIndex < vaoCount; this.curVaoIndex++)
         {
-            this.updateInstances(time, );
-            this.curVaoIndex++;
+            this.updateInstances(time);
+        }
+        
+        if(this.textureData)
+        {
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, this.textureWidth, this.textureHeight, gl.RGBA, gl.FLOAT, this.textureData);
         }
 
-        this.curVaoIndex = 0;
-        for(let i = 0; i < this.instanceCount; i += this.MAX_INS_COUNT_PER)
+        //#region 绘制--------------------------------
+        // 绑定贴图信息
+        gl.activeTexture(gl.TEXTURE0);
+        // gl.bindTexture(gl.TEXTURE_2D, this.instanceTexture);
+        const textureLoc = gl.getUniformLocation(this.program, 'u_instanceData');
+        gl.uniform1i(textureLoc, 0);
+        const widthLoc = gl.getUniformLocation(this.program, 'u_textureWidth');
+        gl.uniform1i(widthLoc, this.textureWidth);
+        
+        // 渲染所有批次
+        for(this.curVaoIndex = 0; this.curVaoIndex < vaoCount; this.curVaoIndex++)
         {
             this.render(time);
-            this.curVaoIndex++;
         }
-      
+        //#endregion
+
         // 计算FPS
         this.frameCount++;
         const currentTime = performance.now();

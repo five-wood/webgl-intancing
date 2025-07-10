@@ -122,7 +122,7 @@ class AttributeRenderer extends InstanceRenderer {
                
     }
 
-    _updateInstanceByType()
+    _updateInstancesByType()
     {
         const gl = this.gl;
         let positions = this.attriPosArray

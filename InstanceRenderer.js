@@ -3,7 +3,7 @@ class InstanceRenderer {
     //#region 子类复写
     _initByType(){}
     _createVShadersByType(){ return ""}
-    _updateInstanceByType(){}
+    _updateInstancesByType(){}
     _renderByType(){}
     //#endregion
 
@@ -20,7 +20,7 @@ class InstanceRenderer {
         this.uploadTime = 0;
         this.renderTime = 0;
         this.isActive = false;
-        this.MAX_INS_COUNT_PER = 1024;
+        this.MAX_INS_COUNT_PER = 64;
         
         if (!this.gl) {
             throw new Error('WebGL 2.0 not supported');
@@ -139,7 +139,7 @@ class InstanceRenderer {
     updateInstances(time) {
         if (!this.isActive) return;
         const uploadStart = performance.now();
-        this._updateInstanceByType()
+        this._updateInstancesByType()
         this.uploadTime = performance.now() - uploadStart;
     }
 

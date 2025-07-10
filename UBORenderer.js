@@ -67,7 +67,7 @@ class UBORenderer extends InstanceRenderer {
         }`;
     }
     
-    _updateInstanceByType()
+    _updateInstancesByType()
     {
       
     }
